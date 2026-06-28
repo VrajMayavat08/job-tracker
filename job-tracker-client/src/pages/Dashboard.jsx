@@ -5,6 +5,13 @@ import api from '../api/axios';
 import AddJobModal from '../components/AddJobModal';
 import EditJobModal from '../components/EditJobModal';
 
+const statusColors = {
+  Applied: { bg: 'rgba(123,97,255,0.18)', text: '#B6A8FF', dot: '#9C8CFF' },
+  Interview: { bg: 'rgba(245,166,35,0.18)', text: '#F5C56B', dot: '#F5C56B' },
+  Offer: { bg: 'rgba(0,217,192,0.18)', text: '#6EE7D8', dot: '#6EE7D8' },
+  Rejected: { bg: 'rgba(229,91,91,0.18)', text: '#F0A0A0', dot: '#F0A0A0' },
+};
+
 function Dashboard() {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -33,13 +40,9 @@ function Dashboard() {
     navigate('/login');
   };
 
-  const handleJobAdded = (newJob) => {
-    setJobs([newJob, ...jobs]);
-  };
-
-  const handleJobUpdated = (updatedJob) => {
+  const handleJobAdded = (newJob) => setJobs([newJob, ...jobs]);
+  const handleJobUpdated = (updatedJob) =>
     setJobs(jobs.map((j) => (j._id === updatedJob._id ? updatedJob : j)));
-  };
 
   const handleDelete = async (jobId) => {
     if (!window.confirm('Delete this application?')) return;
@@ -51,21 +54,49 @@ function Dashboard() {
     }
   };
 
+  const counts = {
+    total: jobs.length,
+    Applied: jobs.filter((j) => j.status === 'Applied').length,
+    Interview: jobs.filter((j) => j.status === 'Interview').length,
+    Offer: jobs.filter((j) => j.status === 'Offer').length,
+  };
+
+  const heroJob = jobs.find((j) => j.status === 'Interview') || jobs[0];
+  const restJobs = jobs.filter((j) => j._id !== heroJob?._id);
+
   return (
-    <div className="min-h-screen bg-[var(--color-bg-deep)] px-6 py-8">
-      <div className="max-w-5xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
+    <div className="min-h-screen bg-[var(--color-bg-deep)] px-6 py-8 relative overflow-hidden">
+      {/* Ambient glows */}
+      <div
+        className="absolute w-[420px] h-[420px] rounded-full pointer-events-none glow-blur"
+        style={{
+          background: 'radial-gradient(circle, rgba(123,97,255,0.18) 0%, rgba(123,97,255,0) 70%)',
+          top: '-180px',
+          left: '-140px',
+        }}
+      />
+      <div
+        className="absolute w-[420px] h-[420px] rounded-full pointer-events-none glow-blur"
+        style={{
+          background: 'radial-gradient(circle, rgba(0,217,192,0.15) 0%, rgba(0,217,192,0) 70%)',
+          bottom: '-200px',
+          right: '-140px',
+        }}
+      />
+
+      <div className="max-w-5xl mx-auto relative z-10">
+        {/* Topbar */}
+        <div className="flex justify-between items-center mb-6">
           <div>
             <h1 className="font-[var(--font-display)] text-xl">Job tracker</h1>
             <p className="text-[var(--color-text-secondary)] text-sm">
-              {jobs.length} applications in flight
+              {counts.total} applications in flight
             </p>
           </div>
-
           <div className="flex items-center gap-3">
             <button
               onClick={() => setShowAddModal(true)}
-              className="bg-[var(--color-violet)] hover:bg-[var(--color-violet-light)] text-white text-sm font-medium rounded-lg px-4 py-2 transition-colors"
+              className="bg-[var(--color-violet)] hover:bg-[var(--color-violet-light)] text-white text-sm font-medium rounded-lg px-4 py-2 transition-colors glow-violet"
             >
               + Add application
             </button>
@@ -78,49 +109,107 @@ function Dashboard() {
           </div>
         </div>
 
+        {/* Stats row */}
+        <div className="grid grid-cols-4 gap-3 mb-6">
+          {[
+            { label: 'total', value: counts.total },
+            { label: 'applied', value: counts.Applied },
+            { label: 'interview', value: counts.Interview },
+            { label: 'offer', value: counts.Offer },
+          ].map((stat) => (
+            <div key={stat.label} className="glass-card rounded-xl px-4 py-3">
+              <p className="font-[var(--font-mono)] text-lg font-medium">{stat.value}</p>
+              <p className="text-xs text-[var(--color-text-secondary)]">{stat.label}</p>
+            </div>
+          ))}
+        </div>
+
         {loading ? (
           <p className="text-[var(--color-text-secondary)] text-sm">Loading...</p>
         ) : jobs.length === 0 ? (
           <p className="text-[var(--color-text-secondary)] text-sm">No applications yet.</p>
         ) : (
-          <div className="space-y-3">
-            {jobs.map((job) => (
-              <div
-                key={job._id}
-                className="bg-[var(--color-glass)] border border-[var(--color-glass-border)] rounded-xl p-4 flex justify-between items-start"
-              >
-                <div>
-                  <p className="text-sm font-medium">{job.company}</p>
-                  <p className="text-xs text-[var(--color-text-secondary)]">{job.role}</p>
-                  <p className="text-xs text-[var(--color-text-secondary)] mt-1">{job.status}</p>
-                </div>
+          <div className="grid grid-cols-1 md:grid-cols-[1.3fr_1fr] gap-4">
+            {/* Hero card */}
+            {heroJob && (
+              <div className="glass-card rounded-2xl p-6">
+                <span
+                  className="text-xs px-3 py-1 rounded-full inline-block mb-3"
+                  style={{
+                    background: statusColors[heroJob.status]?.bg,
+                    color: statusColors[heroJob.status]?.text,
+                  }}
+                >
+                  {heroJob.status} · most recent
+                </span>
+                <h2 className="font-[var(--font-display)] text-xl mb-1">{heroJob.company}</h2>
+                <p className="text-sm text-[var(--color-text-secondary)] mb-4">{heroJob.role}</p>
+                {heroJob.notes && (
+                  <div className="bg-white/5 rounded-lg px-3 py-2 text-sm text-[var(--color-text-secondary)] mb-4">
+                    {heroJob.notes}
+                  </div>
+                )}
                 <div className="flex gap-3">
                   <button
-                    onClick={() => setEditingJob(job)}
+                    onClick={() => setEditingJob(heroJob)}
                     className="text-xs text-[var(--color-violet-light)] hover:underline"
                   >
                     Edit
                   </button>
                   <button
-                    onClick={() => handleDelete(job._id)}
+                    onClick={() => handleDelete(heroJob._id)}
                     className="text-xs text-[var(--color-rose-light)] hover:underline"
                   >
                     Delete
                   </button>
                 </div>
               </div>
-            ))}
+            )}
+
+            {/* Mini list */}
+            <div className="flex flex-col gap-2">
+              {restJobs.map((job) => (
+                <div
+                  key={job._id}
+                  className="glass-card rounded-xl px-4 py-3 flex justify-between items-center"
+                >
+                  <div>
+                    <p className="text-sm">{job.company}</p>
+                    <p className="text-xs text-[var(--color-text-secondary)]">{job.role}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="font-[var(--font-mono)] text-[10px] px-2 py-0.5 rounded-full"
+                      style={{
+                        background: statusColors[job.status]?.bg,
+                        color: statusColors[job.status]?.text,
+                      }}
+                    >
+                      {job.status}
+                    </span>
+                    <button
+                      onClick={() => setEditingJob(job)}
+                      className="text-xs text-[var(--color-violet-light)] hover:underline"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleDelete(job._id)}
+                      className="text-xs text-[var(--color-rose-light)] hover:underline"
+                    >
+                      Del
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>
 
       {showAddModal && (
-        <AddJobModal
-          onClose={() => setShowAddModal(false)}
-          onJobAdded={handleJobAdded}
-        />
+        <AddJobModal onClose={() => setShowAddModal(false)} onJobAdded={handleJobAdded} />
       )}
-
       {editingJob && (
         <EditJobModal
           job={editingJob}
