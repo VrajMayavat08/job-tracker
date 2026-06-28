@@ -4,6 +4,10 @@ import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import AddJobModal from '../components/AddJobModal';
 import EditJobModal from '../components/EditJobModal';
+import TimelineView from '../components/TimelineView';
+import CompanyLogo from '../components/CompanyLogo';
+import Greeting from '../components/Greeting';
+import FilterSidebar from '../components/FilterSidebar';
 
 const statusColors = {
   Applied: { bg: 'rgba(123,97,255,0.18)', text: '#B6A8FF', dot: '#9C8CFF' },
@@ -17,6 +21,9 @@ function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingJob, setEditingJob] = useState(null);
+  const [view, setView] = useState('board');
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('All');
   const { logout } = useAuth();
   const navigate = useNavigate();
 
@@ -54,6 +61,13 @@ function Dashboard() {
     }
   };
 
+  // Apply search + filter
+  const filteredJobs = jobs.filter((job) => {
+    const matchesSearch = job.company.toLowerCase().includes(search.toLowerCase());
+    const matchesStatus = statusFilter === 'All' || job.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
   const counts = {
     total: jobs.length,
     Applied: jobs.filter((j) => j.status === 'Applied').length,
@@ -61,8 +75,8 @@ function Dashboard() {
     Offer: jobs.filter((j) => j.status === 'Offer').length,
   };
 
-  const heroJob = jobs.find((j) => j.status === 'Interview') || jobs[0];
-  const restJobs = jobs.filter((j) => j._id !== heroJob?._id);
+  const heroJob = filteredJobs.find((j) => j.status === 'Interview') || filteredJobs[0];
+  const restJobs = filteredJobs.filter((j) => j._id !== heroJob?._id);
 
   return (
     <div className="min-h-screen bg-[var(--color-bg-deep)] px-6 py-8 relative overflow-hidden">
@@ -84,14 +98,12 @@ function Dashboard() {
         }}
       />
 
-      <div className="max-w-5xl mx-auto relative z-10">
+      <div className="max-w-6xl mx-auto relative z-10">
         {/* Topbar */}
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex justify-between items-center mb-2">
           <div>
             <h1 className="font-[var(--font-display)] text-xl">Job tracker</h1>
-            <p className="text-[var(--color-text-secondary)] text-sm">
-              {counts.total} applications in flight
-            </p>
+            <Greeting />
           </div>
           <div className="flex items-center gap-3">
             <button
@@ -109,6 +121,26 @@ function Dashboard() {
           </div>
         </div>
 
+        {/* View toggle */}
+        <div className="flex gap-1 bg-white/5 border border-[var(--color-glass-border)] rounded-lg p-1 w-fit mb-6 mt-4">
+          <button
+            onClick={() => setView('board')}
+            className={`text-xs px-3 py-1.5 rounded-md transition-colors ${
+              view === 'board' ? 'bg-white/10 text-[var(--color-text-primary)]' : 'text-[var(--color-text-secondary)]'
+            }`}
+          >
+            Board
+          </button>
+          <button
+            onClick={() => setView('timeline')}
+            className={`text-xs px-3 py-1.5 rounded-md transition-colors ${
+              view === 'timeline' ? 'bg-white/10 text-[var(--color-text-primary)]' : 'text-[var(--color-text-secondary)]'
+            }`}
+          >
+            Timeline
+          </button>
+        </div>
+
         {/* Stats row */}
         <div className="grid grid-cols-4 gap-3 mb-6">
           {[
@@ -124,87 +156,109 @@ function Dashboard() {
           ))}
         </div>
 
-        {loading ? (
-          <p className="text-[var(--color-text-secondary)] text-sm">Loading...</p>
-        ) : jobs.length === 0 ? (
-          <p className="text-[var(--color-text-secondary)] text-sm">No applications yet.</p>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-[1.3fr_1fr] gap-4">
-            {/* Hero card */}
-            {heroJob && (
-              <div className="glass-card rounded-2xl p-6">
-                <span
-                  className="text-xs px-3 py-1 rounded-full inline-block mb-3"
-                  style={{
-                    background: statusColors[heroJob.status]?.bg,
-                    color: statusColors[heroJob.status]?.text,
-                  }}
-                >
-                  {heroJob.status} · most recent
-                </span>
-                <h2 className="font-[var(--font-display)] text-xl mb-1">{heroJob.company}</h2>
-                <p className="text-sm text-[var(--color-text-secondary)] mb-4">{heroJob.role}</p>
-                {heroJob.notes && (
-                  <div className="bg-white/5 rounded-lg px-3 py-2 text-sm text-[var(--color-text-secondary)] mb-4">
-                    {heroJob.notes}
+        {/* Main layout: sidebar + content */}
+        <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-4">
+          <FilterSidebar
+            search={search}
+            setSearch={setSearch}
+            statusFilter={statusFilter}
+            setStatusFilter={setStatusFilter}
+          />
+
+          <div>
+            {loading ? (
+              <p className="text-[var(--color-text-secondary)] text-sm">Loading...</p>
+            ) : filteredJobs.length === 0 ? (
+              <p className="text-[var(--color-text-secondary)] text-sm">
+                {jobs.length === 0 ? 'No applications yet.' : 'No matches found.'}
+              </p>
+            ) : view === 'board' ? (
+              <div className="grid grid-cols-1 md:grid-cols-[1.3fr_1fr] gap-4">
+                {/* Hero card */}
+                {heroJob && (
+                  <div className="glass-card rounded-2xl p-6">
+                    <div className="flex items-center gap-3 mb-3">
+                      <CompanyLogo company={heroJob.company} size={36} />
+                      <span
+                        className="text-xs px-3 py-1 rounded-full"
+                        style={{
+                          background: statusColors[heroJob.status]?.bg,
+                          color: statusColors[heroJob.status]?.text,
+                        }}
+                      >
+                        {heroJob.status} · most recent
+                      </span>
+                    </div>
+                    <h2 className="font-[var(--font-display)] text-xl mb-1">{heroJob.company}</h2>
+                    <p className="text-sm text-[var(--color-text-secondary)] mb-4">{heroJob.role}</p>
+                    {heroJob.notes && (
+                      <div className="bg-white/5 rounded-lg px-3 py-2 text-sm text-[var(--color-text-secondary)] mb-4">
+                        {heroJob.notes}
+                      </div>
+                    )}
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => setEditingJob(heroJob)}
+                        className="text-xs text-[var(--color-violet-light)] hover:underline"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDelete(heroJob._id)}
+                        className="text-xs text-[var(--color-rose-light)] hover:underline"
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </div>
                 )}
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => setEditingJob(heroJob)}
-                    className="text-xs text-[var(--color-violet-light)] hover:underline"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => handleDelete(heroJob._id)}
-                    className="text-xs text-[var(--color-rose-light)] hover:underline"
-                  >
-                    Delete
-                  </button>
+
+                {/* Mini list */}
+                <div className="flex flex-col gap-2">
+                  {restJobs.map((job) => (
+                    <div
+                      key={job._id}
+                      className="glass-card rounded-xl px-4 py-3 flex justify-between items-center"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <CompanyLogo company={job.company} size={28} />
+                        <div className="min-w-0">
+                          <p className="text-sm truncate">{job.company}</p>
+                          <p className="text-xs text-[var(--color-text-secondary)] truncate">{job.role}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <span
+                          className="font-[var(--font-mono)] text-[10px] px-2 py-0.5 rounded-full"
+                          style={{
+                            background: statusColors[job.status]?.bg,
+                            color: statusColors[job.status]?.text,
+                          }}
+                        >
+                          {job.status}
+                        </span>
+                        <button
+                          onClick={() => setEditingJob(job)}
+                          className="text-xs text-[var(--color-violet-light)] hover:underline"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDelete(job._id)}
+                          className="text-xs text-[var(--color-rose-light)] hover:underline"
+                        >
+                          Del
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
+            ) : (
+              <TimelineView jobs={filteredJobs} />
             )}
-
-            {/* Mini list */}
-            <div className="flex flex-col gap-2">
-              {restJobs.map((job) => (
-                <div
-                  key={job._id}
-                  className="glass-card rounded-xl px-4 py-3 flex justify-between items-center"
-                >
-                  <div>
-                    <p className="text-sm">{job.company}</p>
-                    <p className="text-xs text-[var(--color-text-secondary)]">{job.role}</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="font-[var(--font-mono)] text-[10px] px-2 py-0.5 rounded-full"
-                      style={{
-                        background: statusColors[job.status]?.bg,
-                        color: statusColors[job.status]?.text,
-                      }}
-                    >
-                      {job.status}
-                    </span>
-                    <button
-                      onClick={() => setEditingJob(job)}
-                      className="text-xs text-[var(--color-violet-light)] hover:underline"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleDelete(job._id)}
-                      className="text-xs text-[var(--color-rose-light)] hover:underline"
-                    >
-                      Del
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
           </div>
-        )}
+        </div>
       </div>
 
       {showAddModal && (
