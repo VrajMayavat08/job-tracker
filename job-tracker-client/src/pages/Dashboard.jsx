@@ -10,11 +10,18 @@ import Greeting from '../components/Greeting';
 import FilterSidebar from '../components/FilterSidebar';
 
 const statusColors = {
-  Applied: { bg: 'rgba(123,97,255,0.18)', text: '#B6A8FF', dot: '#9C8CFF' },
-  Interview: { bg: 'rgba(245,166,35,0.18)', text: '#F5C56B', dot: '#F5C56B' },
-  Offer: { bg: 'rgba(0,217,192,0.18)', text: '#6EE7D8', dot: '#6EE7D8' },
-  Rejected: { bg: 'rgba(229,91,91,0.18)', text: '#F0A0A0', dot: '#F0A0A0' },
+  Applied: { bg: 'rgba(123,97,255,0.18)', text: '#B6A8FF', border: '#9C8CFF' },
+  Interview: { bg: 'rgba(245,166,35,0.18)', text: '#F5C56B', border: '#F5C56B' },
+  Offer: { bg: 'rgba(0,217,192,0.18)', text: '#6EE7D8', border: '#6EE7D8' },
+  Rejected: { bg: 'rgba(229,91,91,0.18)', text: '#F0A0A0', border: '#F0A0A0' },
 };
+
+function daysAgo(dateStr) {
+  const diff = Math.floor((new Date() - new Date(dateStr)) / (1000 * 60 * 60 * 24));
+  if (diff === 0) return 'today';
+  if (diff === 1) return '1 day ago';
+  return `${diff} days ago`;
+}
 
 function Dashboard() {
   const [jobs, setJobs] = useState([]);
@@ -61,7 +68,6 @@ function Dashboard() {
     }
   };
 
-  // Apply search + filter
   const filteredJobs = jobs.filter((job) => {
     const matchesSearch = job.company.toLowerCase().includes(search.toLowerCase());
     const matchesStatus = statusFilter === 'All' || job.status === statusFilter;
@@ -77,10 +83,10 @@ function Dashboard() {
 
   const heroJob = filteredJobs.find((j) => j.status === 'Interview') || filteredJobs[0];
   const restJobs = filteredJobs.filter((j) => j._id !== heroJob?._id);
+  const heroColors = heroJob ? statusColors[heroJob.status] : null;
 
   return (
     <div className="min-h-screen bg-[var(--color-bg-deep)] px-6 py-8 relative overflow-hidden">
-      {/* Ambient glows */}
       <div
         className="absolute w-[420px] h-[420px] rounded-full pointer-events-none glow-blur"
         style={{
@@ -100,7 +106,7 @@ function Dashboard() {
 
       <div className="max-w-6xl mx-auto relative z-10">
         {/* Topbar */}
-        <div className="flex justify-between items-center mb-2">
+        <div className="flex justify-between items-center mb-6">
           <div>
             <h1 className="font-[var(--font-display)] text-xl">Job tracker</h1>
             <Greeting />
@@ -122,7 +128,7 @@ function Dashboard() {
         </div>
 
         {/* View toggle */}
-        <div className="flex gap-1 bg-white/5 border border-[var(--color-glass-border)] rounded-lg p-1 w-fit mb-6 mt-4">
+        <div className="flex gap-1 bg-white/5 border border-[var(--color-glass-border)] rounded-lg p-1 w-fit mb-6">
           <button
             onClick={() => setView('board')}
             className={`text-xs px-3 py-1.5 rounded-md transition-colors ${
@@ -141,62 +147,65 @@ function Dashboard() {
           </button>
         </div>
 
-        {/* Stats row */}
-        <div className="grid grid-cols-4 gap-3 mb-6">
-          {[
-            { label: 'total', value: counts.total },
-            { label: 'applied', value: counts.Applied },
-            { label: 'interview', value: counts.Interview },
-            { label: 'offer', value: counts.Offer },
-          ].map((stat) => (
-            <div key={stat.label} className="glass-card rounded-xl px-4 py-3">
-              <p className="font-[var(--font-mono)] text-lg font-medium">{stat.value}</p>
-              <p className="text-xs text-[var(--color-text-secondary)]">{stat.label}</p>
-            </div>
-          ))}
-        </div>
-
-        {/* Main layout: sidebar + content */}
-        <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-4">
+        {/* Main layout: sidebar (stats + filters) + content */}
+        <div className="grid grid-cols-1 md:grid-cols-[240px_1fr] gap-5">
           <FilterSidebar
             search={search}
             setSearch={setSearch}
             statusFilter={statusFilter}
             setStatusFilter={setStatusFilter}
+            counts={counts}
           />
 
-          <div>
+          <div className="min-h-[500px]">
             {loading ? (
               <p className="text-[var(--color-text-secondary)] text-sm">Loading...</p>
             ) : filteredJobs.length === 0 ? (
-              <p className="text-[var(--color-text-secondary)] text-sm">
-                {jobs.length === 0 ? 'No applications yet.' : 'No matches found.'}
-              </p>
+              <div className="glass-card rounded-2xl p-10 text-center">
+                <p className="text-[var(--color-text-secondary)] text-sm">
+                  {jobs.length === 0
+                    ? "Your tracker is empty — time to start the hunt 🎯"
+                    : 'No matches found.'}
+                </p>
+              </div>
             ) : view === 'board' ? (
               <div className="grid grid-cols-1 md:grid-cols-[1.3fr_1fr] gap-4">
-                {/* Hero card */}
+                {/* Hero card — stronger identity */}
                 {heroJob && (
-                  <div className="glass-card rounded-2xl p-6">
-                    <div className="flex items-center gap-3 mb-3">
-                      <CompanyLogo company={heroJob.company} size={36} />
-                      <span
-                        className="text-xs px-3 py-1 rounded-full"
-                        style={{
-                          background: statusColors[heroJob.status]?.bg,
-                          color: statusColors[heroJob.status]?.text,
-                        }}
-                      >
-                        {heroJob.status} · most recent
-                      </span>
+                  <div
+                    className="glass-card rounded-2xl p-7 relative overflow-hidden"
+                    style={{ borderColor: heroColors.border + '40' }}
+                  >
+                    <div
+                      className="absolute top-0 left-0 w-full h-1"
+                      style={{ background: `linear-gradient(90deg, ${heroColors.border}, transparent)` }}
+                    />
+                    <div className="flex items-center gap-3 mb-4">
+                      <CompanyLogo company={heroJob.company} size={48} />
+                      <div>
+                        <span
+                          className="text-xs px-3 py-1 rounded-full inline-block mb-1"
+                          style={{ background: heroColors.bg, color: heroColors.text }}
+                        >
+                          {heroJob.status} · most recent
+                        </span>
+                        <p className="font-[var(--font-mono)] text-[10px] text-[var(--color-text-secondary)]">
+                          Applied {daysAgo(heroJob.appliedDate)}
+                        </p>
+                      </div>
                     </div>
-                    <h2 className="font-[var(--font-display)] text-xl mb-1">{heroJob.company}</h2>
+                    <h2 className="font-[var(--font-display)] text-2xl mb-1">{heroJob.company}</h2>
                     <p className="text-sm text-[var(--color-text-secondary)] mb-4">{heroJob.role}</p>
-                    {heroJob.notes && (
-                      <div className="bg-white/5 rounded-lg px-3 py-2 text-sm text-[var(--color-text-secondary)] mb-4">
+                    {heroJob.notes ? (
+                      <div className="bg-white/5 rounded-lg px-4 py-3 text-sm text-[var(--color-text-secondary)] mb-5">
                         {heroJob.notes}
                       </div>
+                    ) : (
+                      <div className="bg-white/5 rounded-lg px-4 py-3 text-sm text-[var(--color-text-secondary)] mb-5 italic">
+                        No notes added yet.
+                      </div>
                     )}
-                    <div className="flex gap-3">
+                    <div className="flex gap-4">
                       <button
                         onClick={() => setEditingJob(heroJob)}
                         className="text-xs text-[var(--color-violet-light)] hover:underline"
@@ -252,6 +261,13 @@ function Dashboard() {
                       </div>
                     </div>
                   ))}
+                  {restJobs.length === 0 && (
+                    <div className="glass-card rounded-xl px-4 py-6 text-center">
+                      <p className="text-xs text-[var(--color-text-secondary)]">
+                        Nothing else here yet.
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (
